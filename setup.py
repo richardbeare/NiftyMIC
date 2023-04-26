@@ -24,9 +24,10 @@ with open(os.path.join("niftymic", "__about__.py")) as fp:
     exec(fp.read(), about)
 
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
+#with open("README.md", "r") as fh:
+#    long_description = fh.read()
 
+long_description="Removed - meant to be README.md"
 
 def install_requires(fname="requirements.txt"):
     with open(fname) as f:
@@ -69,6 +70,7 @@ setup(name='NiftyMIC',
           'console_scripts': [
               'niftymic_correct_bias_field = niftymic.application.correct_bias_field:main',
               'niftymic_reconstruct_volume = niftymic.application.reconstruct_volume:main',
+              'niftymic_reconstruct_volume_RB = niftymic.application.reconstruct_volume_RB:main',
               'niftymic_reconstruct_volume_from_slices = niftymic.application.reconstruct_volume_from_slices:main',
               'niftymic_register_image = niftymic.application.register_image:main',
               'niftymic_multiply = niftymic.application.multiply:main',
