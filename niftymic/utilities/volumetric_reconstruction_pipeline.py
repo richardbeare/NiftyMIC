@@ -125,8 +125,9 @@ class VolumeToVolumeRegistration(RegistrationPipeline):
     def __init__(self,
                  stacks,
                  reference,
-                 registration_method,
+                 registration_method,                 
                  verbose=1,
+                 print_prefix="",                 
                  viewer=VIEWER,
                  robust=False,
                  ):
@@ -139,14 +140,18 @@ class VolumeToVolumeRegistration(RegistrationPipeline):
             verbose=verbose,
         )
         self._robust = robust
+        self._print_prefix = print_prefix
+        
+    def set_print_prefix(self, print_prefix):
+        self._print_prefix = print_prefix
 
     def _run(self):
 
         ph.print_title("Volume-to-Volume Registration")
 
         for i in range(0, len(self._stacks)):
-            txt = "Volume-to-Volume Registration -- " \
-                "Stack %d/%d" % (i + 1, len(self._stacks))
+            txt = "%sVolume-to-Volume Registration -- " \
+                "Stack %d/%d" % (self._print_prefix, i + 1, len(self._stacks))
             if self._verbose:
                 ph.print_subtitle(txt)
             else:
@@ -606,6 +611,7 @@ class TwoStepSliceToVolumeRegistrationReconstruction(
             if cycle < self._cycles - 1:
                 # ---------------- Perform Image Reconstruction ---------------
                 ph.print_subtitle("Volumetric Image Reconstruction")
+
                 if isinstance(
                     self._reconstruction_method,
                     sda.ScatteredDataApproximation
@@ -647,6 +653,168 @@ class TwoStepSliceToVolumeRegistrationReconstruction(
                                       viewer=self._viewer)
 
 
+##
+# Class to perform the two-step Slice-to-Volume registration and volumetric
+# reconstruction iteratively
+# \date       2017-08-08 02:30:43+0100
+#
+class TwoStepVolumeToVolumeRegistrationReconstruction(
+        ReconstructionRegistrationPipeline):
+
+    ##
+    # Store information to perform the two-step S2V reg and recon
+    # \date       2017-08-08 02:31:24+0100
+    #
+    # \param      self                           The object
+    # \param      stacks                         The stacks
+    # \param      reference                      The reference
+    # \param      registration_method            Registration method, e.g.
+    #                                            SimpleItkRegistration
+    # \param      reconstruction_method          Reconstruction method, e.g.
+    #                                            TK1
+    # \param      alphas                         List of alphas
+    #                                            array
+    # \param      verbose                        The verbose
+    # \param      cycles                         Number of cycles, int
+    # \param      outlier_rejection              The outlier rejection
+    # \param      threshold_measure              The threshold measure
+    # \param      thresholds                     The threshold range
+    # \param      use_hierarchical_registration  The use hierarchical registration
+    # \param      interleave                     The interleave
+    # \param      viewer                         The viewer
+    # \param      sigma_sda_mask                 The sigma sda mask
+    #
+    def __init__(self,
+                 stacks,
+                 reference,
+                 registration_method,
+                 reconstruction_method,
+                 alphas,
+                 verbose=1,
+                 cycles=3,
+                 outlier_rejection=False,
+                 threshold_measure="NCC",
+                 thresholds=[0.6, 0.7, 0.8],
+                 use_hierarchical_registration=False,
+                 interleave=3,
+                 viewer=VIEWER,
+                 sigma_sda_mask=1.,
+                 ):
+
+        # Last volumetric reconstruction step is performed outside
+        if len(alphas) != cycles - 1:
+            raise ValueError(
+                "Elements in alpha list must correspond to cycles-1")
+
+        if outlier_rejection and len(thresholds) != cycles:
+            raise ValueError(
+                "Elements in outlier rejection threshold list must "
+                "correspond to the number of cycles")
+
+        ReconstructionRegistrationPipeline.__init__(
+            self,
+            stacks=stacks,
+            reference=reference,
+            registration_method=registration_method,
+            reconstruction_method=reconstruction_method,
+            alphas=alphas,
+            viewer=viewer,
+            verbose=verbose,
+        )
+
+        self._sigma_sda_mask = sigma_sda_mask
+
+        self._cycles = cycles
+        self._outlier_rejection = outlier_rejection
+        self._threshold_measure = threshold_measure
+        self._thresholds = thresholds
+        self._use_hierarchical_registration = use_hierarchical_registration
+        self._interleave = interleave
+
+    def _run(self):
+
+        ph.print_title("Two-step V2V-Registration and SRR Reconstruction")
+
+        v2vreg = VolumeToVolumeRegistration(
+            stacks=self._stacks,
+            reference=self._reference,
+            registration_method=self._registration_method,
+            verbose=False
+        )
+
+        reference = self._reference
+
+        for cycle in range(0, self._cycles):
+
+            if False: #cycle == 0 and self._use_hierarchical_registration:
+                hs2vreg = HieararchicalSliceSetRegistration(
+                    stacks=self._stacks,
+                    reference=reference,
+                    registration_method=self._registration_method,
+                    interleave=self._interleave,
+                    viewer=self._viewer,
+                    min_slices=1,
+                    verbose=False,
+                )
+                hs2vreg.run()
+                self._computational_time_registration += \
+                    hs2vreg.get_computational_time()
+            else:
+                # Slice-to-volume registration step
+                v2vreg.set_reference(reference)
+                v2vreg.set_print_prefix("Cycle %d/%d: " %
+                                        (cycle + 1, self._cycles))
+                v2vreg.run()
+
+            self._computational_time_registration += \
+                v2vreg.get_computational_time()
+
+            # SRR step
+            if cycle < self._cycles - 1:
+                # ---------------- Perform Image Reconstruction ---------------
+                ph.print_subtitle("Volumetric Image Reconstruction")
+
+                if isinstance(
+                    self._reconstruction_method,
+                    sda.ScatteredDataApproximation
+                ):
+                    self._reconstruction_method.set_sigma(self._alphas[cycle])
+                else:
+                    self._reconstruction_method.set_alpha(self._alphas[cycle])
+                self._reconstruction_method.run()
+
+                self._computational_time_reconstruction += \
+                    self._reconstruction_method.get_computational_time()
+
+                reference = self._reconstruction_method.get_reconstruction()
+
+                # ------------------ Perform Image Mask SDA -------------------
+                ph.print_subtitle("Volumetric Image Mask Reconstruction")
+                SDA = sda.ScatteredDataApproximation(
+                    self._stacks,
+                    reference,
+                    sigma=self._sigma_sda_mask,
+                    sda_mask=True,
+                )
+                SDA.run()
+
+                # reference contains updated mask based on SDA
+                reference = SDA.get_reconstruction()
+
+                # -------------------- Store Reconstruction -------------------
+                filename = "Iter%d_%s" % (
+                    cycle + 1,
+                    self._reconstruction_method.get_setting_specific_filename()
+                )
+                self._reconstructions.insert(0, st.Stack.from_stack(
+                    reference, filename=filename))
+
+                if self._verbose:
+                    sitkh.show_stacks(self._reconstructions,
+                                      segmentation=self._reference,
+                                      viewer=self._viewer)
+
+                    
 ##
 # Class to perform hierarchical slice alignment.
 #
