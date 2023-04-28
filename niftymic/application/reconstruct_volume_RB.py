@@ -123,6 +123,19 @@ def main():
         "transformations to motion correction output directory",
         default=0,
     )
+    input_parser.add_option(
+        option_string="--v2v-reg-typeA",
+        type=str,
+        help="Transform type used in volume to volume registration for initial alignment - Rigid or Affine",
+        default="Rigid",
+        required=False)
+    input_parser.add_option(
+        option_string="--v2v-reg-typeB",
+        type=str,
+        help="Transform type used in volume to volume registration in the two stage volume reconstruction - Rigid, Similarity, or Affine",
+        default="Rigid",
+        required=False)
+    
 
     args = input_parser.parse_args()
     input_parser.print_arguments(args)
@@ -246,7 +259,7 @@ def main():
             )
         else:
             vol_registration = niftyreg.RegAladin(
-                registration_type="Rigid",
+                registration_type=args.v2v_reg_typeA,
                 use_fixed_mask=True,
                 use_moving_mask=True,
                 # options="-ln 2 -voff",
@@ -384,6 +397,7 @@ def main():
             moving=HR_volume,
             use_fixed_mask=True,
             use_moving_mask=True,
+            registration_type=args.v2v_reg_typeB,
             interpolator="Linear",
             metric=args.metric,
             metric_params=metric_params,
