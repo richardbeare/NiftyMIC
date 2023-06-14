@@ -251,7 +251,7 @@ def main():
             # options += " -noresample"
 
             vol_registration = regflirt.FLIRT(
-                registration_type="Rigid",
+                registration_type=args.v2v_reg_typeA,
                 use_fixed_mask=True,
                 use_moving_mask=True,
                 options=options,
