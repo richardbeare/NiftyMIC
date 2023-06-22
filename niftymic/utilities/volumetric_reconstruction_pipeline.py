@@ -699,6 +699,7 @@ class TwoStepVolumeToVolumeRegistrationReconstruction(
                  interleave=3,
                  viewer=VIEWER,
                  sigma_sda_mask=1.,
+                 outfolder=None
                  ):
 
         # Last volumetric reconstruction step is performed outside
@@ -743,7 +744,10 @@ class TwoStepVolumeToVolumeRegistrationReconstruction(
         )
 
         reference = self._reference
-
+        for index, s in enumerate(self._stacks):
+            
+            s.write(".", "x" + str(index))
+                
         for cycle in range(0, self._cycles):
 
             if False: #cycle == 0 and self._use_hierarchical_registration:

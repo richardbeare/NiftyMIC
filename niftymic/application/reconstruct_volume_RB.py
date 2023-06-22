@@ -368,7 +368,6 @@ def main():
             stacks, HR_volume, sigma=args.sigma)
         SDA.run()
         HR_volume = SDA.get_reconstruction()
-
         ph.print_subtitle("SDA Approximation Image Mask")
         SDA = sda.ScatteredDataApproximation(
             stacks, HR_volume, sigma=args.sigma, sda_mask=True)
@@ -461,6 +460,7 @@ def main():
                 viewer=args.viewer,
                 verbose=args.verbose,
                 use_hierarchical_registration=args.s2v_hierarchical,
+                outfolder=dir_output
             )
         two_step_v2v_reg_recon.run()
         HR_volume_iterations = \
