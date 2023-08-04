@@ -744,9 +744,8 @@ class TwoStepVolumeToVolumeRegistrationReconstruction(
         )
 
         reference = self._reference
-        for index, s in enumerate(self._stacks):
-            
-            s.write(".", "x" + str(index))
+        #for index, s in enumerate(self._stacks):
+        #    s.write("/GIFT/", "x" + str(index))
                 
         for cycle in range(0, self._cycles):
 
