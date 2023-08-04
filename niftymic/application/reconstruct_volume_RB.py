@@ -394,8 +394,8 @@ def main():
             metric_params = None
         registration = regsitk.SimpleItkRegistration(
             moving=HR_volume,
-            use_fixed_mask=True,
-            use_moving_mask=True,
+            use_fixed_mask=False,
+            use_moving_mask=False,
             registration_type=args.v2v_reg_typeB,
             interpolator="Linear",
             metric=args.metric,
