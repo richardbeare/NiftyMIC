@@ -306,10 +306,10 @@ class LinearOperators(object):
         slice_itk,
         slice_spacing=None,
     ):
-        if slice_spacing is not None:
-            raise ValueError(
-                "Slice spacing cannot be specified for predefined covariance "
-                "use.")
+        #if slice_spacing is not None:
+        #    raise ValueError(
+        #        "Slice spacing cannot be specified for predefined covariance "
+        #        "use.")
         reconstruction_direction_sitk = sitkh.get_sitk_from_itk_direction(
             reconstruction_itk.GetDirection())
         slice_direction_sitk = sitkh.get_sitk_from_itk_direction(

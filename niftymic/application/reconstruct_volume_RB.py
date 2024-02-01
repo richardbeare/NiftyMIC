@@ -30,6 +30,7 @@ import niftymic.utilities.intensity_correction as ic
 import niftymic.utilities.joint_image_mask_builder as imb
 import niftymic.utilities.segmentation_propagation as segprop
 import niftymic.utilities.volumetric_reconstruction_pipeline as pipeline
+from niftymic.utilities.compute_experimental_covariance import computeExpCov
 from niftymic.utilities.input_arparser import InputArgparser
 
 from niftymic.definitions import V2V_METHOD_OPTIONS, ALLOWED_EXTENSIONS
@@ -136,7 +137,22 @@ def main():
         default="Rigid",
         required=False)
     
+    input_parser.add_option(
+        option_string="--predefined-covariance",
+        type=float,
+        nargs="+",
+        default=[-1,-1,-1], # this means use defaults based on spacing
+        help="assumed blurring kernel parameters",
+        required=False)
 
+    input_parser.add_option(
+        option_string="--experimental-covariance",
+        type=int,
+        help="Compute a modified covariance - slightly larger than the default.",
+        default=0,
+    )
+        
+    
     args = input_parser.parse_args()
     input_parser.print_arguments(args)
 
@@ -144,6 +160,17 @@ def main():
     threshold_v2v = -2  # 0.3
     debug = False
 
+    predefined_covariance = None
+    deconvolution_mode = 'full_3D'
+    if args.experimental_covariance > 0:
+        predefined_covariance = computeExpCov(args.filenames[0])
+        deconvolution_mode = 'predefined_covariance'
+        
+    elif args.predefined_covariance[0] > 0:
+        predefined_covariance = np.array(args.predefined_covariance)
+        deconvolution_mode = 'predefined_covariance'
+
+        
     if args.v2v_method not in V2V_METHOD_OPTIONS:
         raise ValueError("v2v-method must be in {%s}" % (
             ", ".join(V2V_METHOD_OPTIONS)))
@@ -252,18 +279,18 @@ def main():
 
             vol_registration = regflirt.FLIRT(
                 registration_type=args.v2v_reg_typeA,
-                use_fixed_mask=True,
-                use_moving_mask=True,
+                use_fixed_mask=False,
+                use_moving_mask=False,
                 options=options,
-                use_verbose=False,
+                use_verbose=True,
             )
         else:
             vol_registration = niftyreg.RegAladin(
                 registration_type=args.v2v_reg_typeA,
-                use_fixed_mask=True,
-                use_moving_mask=True,
+                use_fixed_mask=False,
+                use_moving_mask=False,
                 # options="-ln 2 -voff",
-                use_verbose=False,
+                use_verbose=True,
             )
         v2vreg = pipeline.VolumeToVolumeRegistration(
             stacks=stacks,
@@ -544,11 +571,14 @@ def main():
                 use_masks=args.use_masks_srr,
             )
         else:
+            print(predefined_covariance)
             recon_method = tk.TikhonovSolver(
                 stacks=stacks,
                 reconstruction=HR_volume,
                 reg_type="TK1" if args.reconstruction_type == "TK1L2" else "TK0",
                 use_masks=args.use_masks_srr,
+                deconvolution_mode = deconvolution_mode,
+                predefined_covariance = predefined_covariance
             )
         recon_method.set_alpha(args.alpha)
         recon_method.set_iter_max(args.iter_max)
